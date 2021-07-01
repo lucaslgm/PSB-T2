@@ -91,6 +91,42 @@ void seamcarve(int targetWidth)
         for (int x = targetW; x < target->width; x++)
             ptr[y][x].r = ptr[y][x].g = 0;
     }
+
+    //Calculo da energia de cada pixel
+    int matrizEnergia[source->width][source->height];
+
+    RGB8(*ptr2)
+    [source->width] = (RGB8(*)[source->width])source->img;
+
+    for (int x = 0; x < source->width; x++){
+        for (int y = 0; y < source->height; y++){
+            int Xmais1, Xmenos1, Ymais1, Ymenos1;
+            if(x==0){Xmenos1 = source->width-1; Xmais1=x+1;} else if(x==source->width-1){Xmais1 = 0;Xmenos1=x-1;} else {Xmais1=x+1; Xmenos1=x-1;}
+            if(y==0){Ymenos1 = source->height-1; Ymais1=y+1;}else if(y==source->height-1){Ymais1 = 0; Ymenos1=y-1;} else {Ymenos1=y-1; Ymais1=y+1;}
+
+            int deltaRx, deltaGx, deltaBx;
+            deltaRx = ptr2[Xmais1][y].r - ptr2[Xmenos1][y].r;
+            deltaGx = ptr2[Xmais1][y].g - ptr2[Xmenos1][y].g;
+            deltaBx = ptr2[Xmais1][y].b - ptr2[Xmenos1][y].b;
+
+            int deltaX = pow(deltaRx, 2) + pow(deltaGx, 2) + pow(deltaBx, 2);
+
+            int deltaRy, deltaGy, deltaBy;
+            deltaRy = ptr2[x][Ymais1].r - ptr2[x][Ymenos1].r;
+            deltaGy = ptr2[x][Ymais1].g - ptr2[x][Ymenos1].g;
+            deltaBy = ptr2[x][Ymais1].b - ptr2[x][Ymenos1].b;
+
+            int deltaY = pow(deltaRy, 2) + pow(deltaGy, 2) + pow(deltaBy, 2);
+
+            matrizEnergia[x][y] = deltaX + deltaY;   
+
+            if (x==511)
+            {
+                printf("(%d,%d) = %d %d %d \n", x,y,ptr2[x][y].r, ptr2[x][y].g, ptr2[x][y].b);
+            }            
+        } 
+    }
+
     // Chame uploadTexture a cada vez que mudar
     // a imagem (pic[2])
     uploadTexture();
