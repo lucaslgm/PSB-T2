@@ -127,6 +127,97 @@ void seamcarve(int targetWidth)
         } 
     }
 
+    //mascara
+    RGB8(*ptr3)
+    [mask->width] = (RGB8(*)[mask->width])mask->img; 
+    for(int g=0; g<mask->height; g++){
+        for(int h=0; h<mask->width; h++){
+            if(ptr3[g][h].b < 100 && ptr3[g][h].g < 100){
+                matrizEnergia[g][h] = -10000;
+            } else if (ptr3[g][h].r < 100 && ptr3[g][h].b < 100){
+                matrizEnergia[g][h] *=10000;
+            }
+        }
+    }
+    
+
+    //matriz de custo acumulado
+    int matrizCustoAcumulado[targetWidth][target->height];
+    for (int y=0; y<target->height; y++){
+        matrizCustoAcumulado[0][y] = matrizEnergia[0][y];
+    }
+
+    for (int x=1; x<targetWidth; x++){ 
+        for (int y=0; y<target->height; y++){
+            int menor = matrizCustoAcumulado[x-1][y]; //assume o logo de cima como menor para comparar depois
+            if (y==0) //comparar só com a da diagonal direita
+            {
+                if (matrizCustoAcumulado[x-1][y+1] < menor)
+                    menor = matrizCustoAcumulado[x-1][y+1];
+            } else if (y==targetWidth-1) //comparar só com o da diagonal esquerda 
+            {
+               if (matrizCustoAcumulado[x-1][y-1] < menor)
+                    menor = matrizCustoAcumulado[x-1][y-1];
+            } else { //compara as duas diagonais
+                if (matrizCustoAcumulado[x-1][y+1] < menor)
+                    menor = matrizCustoAcumulado[x-1][y+1];
+                if (matrizCustoAcumulado[x-1][y-1] < menor)
+                    menor = matrizCustoAcumulado[x-1][y-1];    
+            }
+
+            matrizCustoAcumulado[x][y] = matrizEnergia[x][y] + menor;
+        }
+    }
+
+    //Identificação do melhor caminho
+    int pixelsRemover[target->height];
+    int contadorRemover = 1;
+    int menorSomaAcumulada = matrizCustoAcumulado[target->height-1][0]; //assume o primeiro indice da ultima linha para comparar depois
+
+    for (int y=0; y<targetWidth; y++){
+        if (matrizCustoAcumulado[target->height-1][y] < menorSomaAcumulada){ 
+            menorSomaAcumulada = matrizCustoAcumulado[target->height-1][y];
+            pixelsRemover[0] = y; //armazena o indice da coluna
+        }
+    }
+
+    int wid = pixelsRemover[0];
+    for (int x=target->height-2; x>=0; x--){//inicia no menor valor da ultima linha e vai comparando os de cima
+        int menor = matrizCustoAcumulado[x][wid];
+        if (wid==0){
+            if (matrizCustoAcumulado[x][wid+1] < menor){
+                pixelsRemover[contadorRemover] = wid+1;
+                wid++;
+                contadorRemover++;
+            } else {
+                pixelsRemover[contadorRemover] = wid;
+                contadorRemover++;
+            }
+        } else if (wid==targetWidth-1){ 
+            if (matrizCustoAcumulado[x][wid-1] < menor){
+                pixelsRemover[contadorRemover] = wid-1;
+                wid--;
+                contadorRemover++;
+            } else {
+                pixelsRemover[contadorRemover] = wid;
+                contadorRemover++;
+            }
+        } else {
+            if (matrizCustoAcumulado[x][wid+1] < menor){
+                pixelsRemover[contadorRemover] = wid+1;
+                wid++;
+                contadorRemover++;
+            } else if (matrizCustoAcumulado[x][wid-1] < menor){
+                pixelsRemover[contadorRemover] = wid-1;
+                wid--;
+                contadorRemover++;
+            }else {
+                pixelsRemover[contadorRemover] = wid;
+                contadorRemover++;
+            }
+        } 
+    }
+
     // Chame uploadTexture a cada vez que mudar
     // a imagem (pic[2])
     uploadTexture();
