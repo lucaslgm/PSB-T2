@@ -84,25 +84,30 @@ void seamcarve(int targetWidth)
     RGB8(*ptr)
     [target->width] = (RGB8(*)[target->width])target->img;
 
-    for (int y = 0; y < target->height; y++)
+    RGB8(*ptr4)
+    [source->width] = (RGB8(*)[source->width])source->img;
+
+
+    for (int xtotal = 0; xtotal < target->height; xtotal++)
     {
-        for (int x = 0; x < targetW; x++)
-            ptr[y][x].r = ptr[y][x].g = 255;
-        for (int x = targetW; x < target->width; x++)
-            ptr[y][x].r = ptr[y][x].g = 0;
+        for (int ytotal = 0; ytotal < targetW; ytotal++)
+            ptr[xtotal][ytotal] = ptr4[xtotal][ytotal];
+
+        for (int ytotal = targetW; ytotal < target->width; ytotal++)
+            ptr[xtotal][ytotal].r = ptr[xtotal][ytotal].g = ptr[xtotal][ytotal].b = 255;
     }
 
     //Calculo da energia de cada pixel
-    int matrizEnergia[source->width][source->height];
+    int matrizEnergia[targetWidth][target->height];
 
     RGB8(*ptr2)
-    [source->width] = (RGB8(*)[source->width])source->img;
+    [targetWidth] = (RGB8(*)[targetWidth])target->img;
 
-    for (int x = 0; x < source->width; x++){
-        for (int y = 0; y < source->height; y++){
+    for (int x = 0; x < targetWidth; x++){
+        for (int y = 0; y < target->height; y++){
             int Xmais1, Xmenos1, Ymais1, Ymenos1;
-            if(x==0){Xmenos1 = source->width-1; Xmais1=x+1;} else if(x==source->width-1){Xmais1 = 0;Xmenos1=x-1;} else {Xmais1=x+1; Xmenos1=x-1;}
-            if(y==0){Ymenos1 = source->height-1; Ymais1=y+1;}else if(y==source->height-1){Ymais1 = 0; Ymenos1=y-1;} else {Ymenos1=y-1; Ymais1=y+1;}
+            if(x==0){Xmenos1 = targetWidth-1; Xmais1=x+1;} else if(x==targetWidth-1){Xmais1 = 0;Xmenos1=x-1;} else {Xmais1=x+1; Xmenos1=x-1;} //source->width-1
+            if(y==0){Ymenos1 = target->height-1; Ymais1=y+1;}else if(y==target->height-1){Ymais1 = 0; Ymenos1=y-1;} else {Ymenos1=y-1; Ymais1=y+1;} //source->height-1
 
             int deltaRx, deltaGx, deltaBx;
             deltaRx = ptr2[Xmais1][y].r - ptr2[Xmenos1][y].r;
@@ -119,11 +124,6 @@ void seamcarve(int targetWidth)
             int deltaY = pow(deltaRy, 2) + pow(deltaGy, 2) + pow(deltaBy, 2);
 
             matrizEnergia[x][y] = deltaX + deltaY;   
-
-            if (x==511)
-            {
-                printf("(%d,%d) = %d %d %d \n", x,y,ptr2[x][y].r, ptr2[x][y].g, ptr2[x][y].b);
-            }            
         } 
     }
 
@@ -216,6 +216,22 @@ void seamcarve(int targetWidth)
                 contadorRemover++;
             }
         } 
+    }
+
+    //Remoção do seam com melho3r caminho
+    int y2 = 0, x2 = 0;
+    for (int xtotal=0, aux=target->height-1; xtotal<target->height; xtotal++, aux--){
+        y2=0;
+        for (int ytotal=0; ytotal<targetWidth; ytotal++){            
+            if(ytotal!=pixelsRemover[aux]){
+                ptr[xtotal][ytotal] = ptr4[x2][y2];
+                y2++;
+            }
+        }
+        x2++;
+        for (int ytotal = targetWidth; ytotal<target->width; ytotal++){
+            ptr[xtotal][ytotal].r = ptr[xtotal][ytotal].g = ptr[xtotal][ytotal].b = 0;
+        }            
     }
 
     // Chame uploadTexture a cada vez que mudar
