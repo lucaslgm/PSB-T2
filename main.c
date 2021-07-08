@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h> // Para usar strings
+#include <math.h>
 
 #ifdef WIN32
 #include <windows.h> // Apenas para Windows
@@ -62,6 +63,8 @@ Img *target;
 // Imagem selecionada (0,1,2)
 int sel;
 
+int matrizMascaraInicial[384][512];
+
 // Carrega uma imagem para a struct Img
 void load(char *name, Img *pic)
 {
@@ -98,16 +101,16 @@ void seamcarve(int targetWidth)
     }
 
     //Calculo da energia de cada pixel
-    int matrizEnergia[targetWidth][target->height];
+    int matrizEnergia[target->height][targetWidth];
 
     RGB8(*ptr2)
     [targetWidth] = (RGB8(*)[targetWidth])target->img;
 
-    for (int x = 0; x < targetWidth; x++){
-        for (int y = 0; y < target->height; y++){
+    for (int x = 0; x < target->height; x++){
+        for (int y = 0; y < targetWidth; y++){
             int Xmais1, Xmenos1, Ymais1, Ymenos1;
-            if(x==0){Xmenos1 = targetWidth-1; Xmais1=x+1;} else if(x==targetWidth-1){Xmais1 = 0;Xmenos1=x-1;} else {Xmais1=x+1; Xmenos1=x-1;} //source->width-1
-            if(y==0){Ymenos1 = target->height-1; Ymais1=y+1;}else if(y==target->height-1){Ymais1 = 0; Ymenos1=y-1;} else {Ymenos1=y-1; Ymais1=y+1;} //source->height-1
+            if(x==0){Xmenos1 = target->height-1; Xmais1=x+1;} else if(x==target->height-1){Xmais1 = 0;Xmenos1=x-1;} else {Xmais1=x+1; Xmenos1=x-1;} //source->width-1
+            if(y==0){Ymenos1 = targetWidth-1; Ymais1=y+1;}else if(y==targetWidth-1){Ymais1 = 0; Ymenos1=y-1;} else {Ymenos1=y-1; Ymais1=y+1;} //source->height-1
 
             int deltaRx, deltaGx, deltaBx;
             deltaRx = ptr2[Xmais1][y].r - ptr2[Xmenos1][y].r;
@@ -130,25 +133,39 @@ void seamcarve(int targetWidth)
     //mascara
     RGB8(*ptr3)
     [mask->width] = (RGB8(*)[mask->width])mask->img; 
-    for(int g=0; g<mask->height; g++){
-        for(int h=0; h<mask->width; h++){
-            if(ptr3[g][h].b < 100 && ptr3[g][h].g < 100){
-                matrizEnergia[g][h] = -10000;
-            } else if (ptr3[g][h].r < 100 && ptr3[g][h].b < 100){
-                matrizEnergia[g][h] *=10000;
+
+    if(targetWidth == target->width){
+        for(int g=0; g<mask->height; g++){
+            for(int h=0; h<targetWidth; h++){
+                if(ptr3[g][h].b < 100 && ptr3[g][h].g < 100)
+                    matrizMascaraInicial[g][h] = -100;
+                else if (ptr3[g][h].r < 100 && ptr3[g][h].b < 100)
+                    matrizMascaraInicial[g][h] = 1000000;
+                else matrizMascaraInicial[g][h] = 1;
+            }
+        }
+    }
+
+    for(int g=0; g<384; g++){
+        for(int h=0; h<512; h++){
+            int volta = 0;
+            if(matrizMascaraInicial[g][h] == 0)
+                while(matrizMascaraInicial[g][h]==0 && h < 512){h++; volta++;}
+            if(matrizMascaraInicial[g][h]==-100 || matrizMascaraInicial[g][h]==1000000){
+                matrizEnergia[g][h-volta] = matrizMascaraInicial[g][h];
             }
         }
     }
     
 
     //matriz de custo acumulado
-    int matrizCustoAcumulado[targetWidth][target->height];
-    for (int y=0; y<target->height; y++){
+    int matrizCustoAcumulado[target->height][targetWidth];
+    for (int y=0; y<targetWidth; y++){
         matrizCustoAcumulado[0][y] = matrizEnergia[0][y];
     }
 
-    for (int x=1; x<targetWidth; x++){ 
-        for (int y=0; y<target->height; y++){
+    for (int x=1; x<target->height; x++){ 
+        for (int y=0; y<targetWidth; y++){
             int menor = matrizCustoAcumulado[x-1][y]; //assume o logo de cima como menor para comparar depois
             if (y==0) //comparar só com a da diagonal direita
             {
@@ -171,67 +188,65 @@ void seamcarve(int targetWidth)
 
     //Identificação do melhor caminho
     int pixelsRemover[target->height];
-    int contadorRemover = 1;
+    int contadorRemover = target->height-2;
     int menorSomaAcumulada = matrizCustoAcumulado[target->height-1][0]; //assume o primeiro indice da ultima linha para comparar depois
 
     for (int y=0; y<targetWidth; y++){
         if (matrizCustoAcumulado[target->height-1][y] < menorSomaAcumulada){ 
             menorSomaAcumulada = matrizCustoAcumulado[target->height-1][y];
-            pixelsRemover[0] = y; //armazena o indice da coluna
+            pixelsRemover[target->height-1] = y; //armazena o indice da coluna
         }
     }
 
-    int wid = pixelsRemover[0];
+    int wid = pixelsRemover[target->height-1];
     for (int x=target->height-2; x>=0; x--){//inicia no menor valor da ultima linha e vai comparando os de cima
         int menor = matrizCustoAcumulado[x][wid];
         if (wid==0){
             if (matrizCustoAcumulado[x][wid+1] < menor){
                 pixelsRemover[contadorRemover] = wid+1;
                 wid++;
-                contadorRemover++;
+                contadorRemover--;
             } else {
                 pixelsRemover[contadorRemover] = wid;
-                contadorRemover++;
+                contadorRemover--;
             }
         } else if (wid==targetWidth-1){ 
             if (matrizCustoAcumulado[x][wid-1] < menor){
                 pixelsRemover[contadorRemover] = wid-1;
                 wid--;
-                contadorRemover++;
+                contadorRemover--;
             } else {
                 pixelsRemover[contadorRemover] = wid;
-                contadorRemover++;
+                contadorRemover--;
             }
         } else {
             if (matrizCustoAcumulado[x][wid+1] < menor){
                 pixelsRemover[contadorRemover] = wid+1;
                 wid++;
-                contadorRemover++;
+                contadorRemover--;
             } else if (matrizCustoAcumulado[x][wid-1] < menor){
                 pixelsRemover[contadorRemover] = wid-1;
                 wid--;
-                contadorRemover++;
+                contadorRemover--;
             }else {
                 pixelsRemover[contadorRemover] = wid;
-                contadorRemover++;
+                contadorRemover--;
             }
         } 
     }
 
-    //Remoção do seam com melho3r caminho
-    int y2 = 0, x2 = 0;
-    for (int xtotal=0, aux=target->height-1; xtotal<target->height; xtotal++, aux--){
-        y2=0;
-        for (int ytotal=0; ytotal<targetWidth; ytotal++){            
-            if(ytotal!=pixelsRemover[aux]){
-                ptr[xtotal][ytotal] = ptr4[x2][y2];
-                y2++;
+    //Remoção do seam com melhor caminho
+    for (int x=0; x<target->height; x++){
+        for (int y=0; y<targetWidth; y++){
+            if(y!=pixelsRemover[x]){
+               ptr[x][y] = ptr4[x][y];
+            } else{
+                ptr[x][y].r = ptr[x][y].g = 0;
+                matrizMascaraInicial[x][y] = 0;
             }
         }
-        x2++;
-        for (int ytotal = targetWidth; ytotal<target->width; ytotal++){
-            ptr[xtotal][ytotal].r = ptr[xtotal][ytotal].g = ptr[xtotal][ytotal].b = 0;
-        }            
+        for (int y = targetWidth; y<target->width; y++)
+            ptr[x][y].r = ptr[x][y].g = ptr[x][y].b = 0;
     }
 
     // Chame uploadTexture a cada vez que mudar
